@@ -54,7 +54,13 @@ export function installDevMock(): void {
             { id: 'claude-sonnet-5-5', name: 'Sonnet 5.5', hint: 'Balanced' },
             { id: 'claude-haiku-5-5', name: 'Haiku 5.5', hint: 'Fastest' }
           ]
-        : Array.from({ length: 30 }, (_, i) => ({ id: `vendor/model-${i + 1}`, name: `model-${i + 1}`, hint: 'vendor' }))
+        : id === 'opencode'
+          ? [
+              { id: 'opencode/minimax-m3.1-flash-free', name: 'MiniMax M3.1 Flash Free', hint: 'Free · may train on prompts', free: true },
+              { id: 'opencode/big-pickle', name: 'Big Pickle', hint: 'Free · may train on prompts', free: true },
+              { id: 'anthropic/claude-sonnet-5-5', name: 'claude-sonnet-5-5', hint: 'anthropic' }
+            ]
+          : Array.from({ length: 30 }, (_, i) => ({ id: `vendor/model-${i + 1}`, name: `model-${i + 1}`, hint: 'vendor' }))
     },
     setKey: async (_n, key) => (key ? { ok: true, message: 'Key works. 61 chat models available.' } : { ok: true, message: 'Key removed.' }),
     testKey: async () => ({ ok: true, message: 'Key works. 61 chat models available.' }),

@@ -7,7 +7,7 @@ import type { RunRequest } from '../shared/types'
 import { ADAPTERS, type Ctx, type Emit, type Json } from './adapters'
 import { isHosted, pickDefault } from './hosted'
 import { getKey } from './keys'
-import { listModels } from './models'
+import { freeOpenCodeModel, listModels } from './models'
 import { cachedProvider, detectProviders, resolveLaunch } from './providers'
 
 /** Agents that can be handed Brickyard's MCP server per run, and so can call the others. */
@@ -73,6 +73,12 @@ export async function runTurn(req: RunRequest, emit: Emit): Promise<void> {
   const launch = await resolveLaunch(info.path)
   if (launch.shell) return fail(`Could not launch ${info.name} safely from ${info.path}.`)
 
+  // OpenCode with no model picked: use a free one. OpenCode's own default may point at a
+  // provider the user has no working key for, which fails on the first message.
+  if (req.providerId === 'opencode' && !req.model) {
+    const free = await freeOpenCodeModel()
+    if (free) req = { ...req, model: free }
+  }
   if (isHosted(req.providerId)) {
     if (req.providerId === 'nvidia' && !getKey('nvidia')) return fail('Add your NVIDIA API key in Settings → Agents first.')
     if (!req.model) {
@@ -92,10 +98,12 @@ export async function runTurn(req: RunRequest, emit: Emit): Promise<void> {
   if (!existsSync(cwd)) return fail(`The project folder no longer exists: ${cwd}`)
   let child: ChildProcess
   try {
+    // PWD must match cwd: some CLIs (OpenCode) trust PWD, and Brickyard may have been
+    // started from a shell in another folder.
     child = spawn(launch.file, [...launch.prefix, ...args], {
       cwd,
       windowsHide: true,
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', MCP_TOOL_TIMEOUT: '900000', ...built.env },
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', MCP_TOOL_TIMEOUT: '900000', ...built.env, PWD: cwd },
       stdio: ['pipe', 'pipe', 'pipe']
     })
   } catch (e) {

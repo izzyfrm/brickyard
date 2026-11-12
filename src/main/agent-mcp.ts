@@ -86,7 +86,7 @@ async function askAgent(args: Json): Promise<{ text: string; isError: boolean }>
     const child = spawn(launch.file, [...launch.prefix, ...built.args], {
       cwd: info.cwd,
       windowsHide: true,
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ELECTRON_RUN_AS_NODE: undefined, ...built.env },
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ELECTRON_RUN_AS_NODE: undefined, ...built.env, PWD: info.cwd },
       stdio: ['pipe', 'pipe', 'pipe']
     })
     child.stdin?.on('error', () => {})

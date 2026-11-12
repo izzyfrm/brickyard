@@ -54,12 +54,50 @@ const LOADERS: Partial<Record<ProviderId, () => Promise<ModelInfo[]>>> = {
     return [...out.matchAll(/^(\S+) \(([^)]+)\)\s*$/gm)].map((m) => ({ id: m[1], name: m[2] === m[1] ? m[1] : `${m[2]}` }))
   },
 
-  opencode: async () =>
-    (await cli('opencode', ['models']))
+  opencode: async () => {
+    const [out, zen] = await Promise.all([cli('opencode', ['models']), zenCatalog()])
+    const list = out
       .split(/\r?\n/)
       .map((l) => l.trim())
       .filter((l) => /^[\w.@-]+\/\S+$/.test(l))
-      .map((id) => ({ id, name: id.slice(id.indexOf('/') + 1), hint: id.slice(0, id.indexOf('/')) }))
+      .map((id): ModelInfo => {
+        const provider = id.slice(0, id.indexOf('/'))
+        const short = id.slice(id.indexOf('/') + 1)
+        const info = provider === 'opencode' ? zen.get(short) : undefined
+        // Free = OpenCode Zen prices it at zero. Without the catalog, fall back to the "-free" naming.
+        const free = provider === 'opencode' && (info ? info.free : /-free$/.test(short))
+        return { id, name: info?.name ?? short, hint: free ? 'Free · may train on prompts' : provider, free }
+      })
+    // Free models first, so someone without a paid account sees something that works.
+    return list.sort((a, b) => Number(!!b.free) - Number(!!a.free))
+  }
+}
+
+/** OpenCode Zen's catalog (names and prices) from models.dev, which OpenCode itself uses. */
+let zenCache: { at: number; map: Map<string, { name: string; free: boolean }> } | null = null
+async function zenCatalog(): Promise<Map<string, { name: string; free: boolean }>> {
+  if (zenCache && Date.now() - zenCache.at < 6 * 60 * 60 * 1000) return zenCache.map
+  try {
+    const res = await fetch('https://models.dev/api.json', { signal: AbortSignal.timeout(6000) })
+    const d = (await res.json()) as { opencode?: { models?: Record<string, { name?: string; cost?: { input?: number; output?: number } }> } }
+    const map = new Map<string, { name: string; free: boolean }>()
+    for (const [id, m] of Object.entries(d.opencode?.models ?? {}))
+      map.set(id, { name: m.name ?? id, free: m.cost?.input === 0 && m.cost?.output === 0 })
+    zenCache = { at: Date.now(), map }
+    return map
+  } catch {
+    return zenCache?.map ?? new Map()
+  }
+}
+
+/** The free model to use when someone runs OpenCode without picking one. */
+export async function freeOpenCodeModel(): Promise<string | null> {
+  const models = await listModels('opencode')
+  const free = models.filter((m) => m.free)
+  // Prefer models built for agentic coding when they are on the free list.
+  for (const want of ['opencode/minimax-m3.1-flash-free', 'opencode/deepseek-v4.1-flash-free', 'opencode/glm-5.3-flash-free'])
+    if (free.some((m) => m.id === want)) return want
+  return free[0]?.id ?? null
 }
 
 const cache = new Map<ProviderId, ModelInfo[]>()

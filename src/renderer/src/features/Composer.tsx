@@ -103,7 +103,8 @@ function ModelPicker(): React.JSX.Element {
       trigger={
         <button className={chip} aria-label="Choose model">
           <Cpu className="size-3.5" />
-          <span className="max-w-[150px] truncate">{cfg.model ? (current?.name ?? cfg.model) : 'Default model'}</span>
+          <span className="max-w-[150px] truncate">{cfg.model ? (current?.name ?? cfg.model) : providerId === 'opencode' ? 'Free model' : 'Default model'}</span>
+          {current?.free && <span className="size-1.5 shrink-0 rounded-full bg-ok" title="Free model" />}
           <ChevronDown className="size-3 text-fg3" />
         </button>
       }
@@ -137,7 +138,7 @@ function ModelPicker(): React.JSX.Element {
           <button className={row} onClick={() => pick(null)}>
             <span className="flex-1">
               <span className="block">Default</span>
-              <span className="block text-[11px] leading-snug text-fg3">Whatever the CLI is set to use</span>
+              <span className="block text-[11px] leading-snug text-fg3">{providerId === 'opencode' ? 'A free OpenCode model, picked for coding' : 'Whatever the CLI is set to use'}</span>
             </span>
             {!cfg.model && <Check className="size-3.5 text-ember" />}
           </button>
@@ -146,7 +147,10 @@ function ModelPicker(): React.JSX.Element {
         {shown.map((m) => (
           <button key={m.id} className={row} onClick={() => pick(m.id)}>
             <span className="min-w-0 flex-1">
-              <span className="block truncate">{m.name}</span>
+              <span className="flex items-center gap-1.5">
+                <span className="truncate">{m.name}</span>
+                {m.free && <span className="label shrink-0 rounded bg-ok/12 px-1.5 py-px !text-[9px] !tracking-[0.12em] !text-ok">Free</span>}
+              </span>
               <span className="block truncate font-mono text-[10.5px] text-fg3">{[m.hint, m.name !== m.id ? m.id : null].filter(Boolean).join(' · ') || m.id}</span>
             </span>
             {m.id === cfg.model && <Check className="size-3.5 shrink-0 text-ember" />}

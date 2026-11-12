@@ -28,6 +28,8 @@ export interface ModelInfo {
   id: string
   name: string
   hint?: string
+  /** No charge to the user. Free models usually log prompts and may train on them. */
+  free?: boolean
 }
 
 export interface UpdateInfo {
