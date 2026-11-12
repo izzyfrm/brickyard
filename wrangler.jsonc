@@ -4,6 +4,14 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "brickyard",
   "compatibility_date": "2026-10-01",
+  // The site lives on brickyard.ch; the workers.dev address and preview URLs stay off.
+  "workers_dev": false,
+  "preview_urls": false,
+  // Serve the site on the custom domain (the zone lives in this Cloudflare account).
+  "routes": [
+    { "pattern": "brickyard.ch", "custom_domain": true },
+    { "pattern": "www.brickyard.ch", "custom_domain": true }
+  ],
   "assets": {
     "directory": "./site",
     "not_found_handling": "404-page"
