@@ -40,11 +40,14 @@ interface State {
   update: UpdateInfo | null
   dismissedUpdate: string | null
   settingsTab: SettingsTab
+  /** Provider whose setup guide is expanded in Settings → Agents. */
+  guideFor: string | null
 
   init(): Promise<void>
   rescan(): Promise<void>
   setPanel(p: PanelTab | null): void
   openSettings(tab: SettingsTab | null): void
+  openGuide(id: string): void
   checkUpdate(): Promise<{ current: string; update: UpdateInfo | null; error?: string }>
   dismissUpdate(version: string): void
   setStudioMcp(v: boolean): void
@@ -139,6 +142,7 @@ export const useStore = create<State>((set, get) => ({
   update: null,
   dismissedUpdate: localStorage.getItem('brickyard.dismissedUpdate'),
   settingsTab: 'appearance',
+  guideFor: null,
 
   async init() {
     // StrictMode mounts twice in dev; a second listener would duplicate every streamed token.
@@ -180,7 +184,8 @@ export const useStore = create<State>((set, get) => ({
     localStorage.setItem('brickyard.dismissedUpdate', version)
     set({ dismissedUpdate: version })
   },
-  openSettings: (tab) => set(tab ? { settingsOpen: true, settingsTab: tab } : { settingsOpen: false }),
+  openSettings: (tab) => set(tab ? { settingsOpen: true, settingsTab: tab } : { settingsOpen: false, guideFor: null }),
+  openGuide: (id) => set({ settingsOpen: true, settingsTab: 'agents', guideFor: id }),
   setStudioMcp: (v) => {
     localStorage.setItem('brickyard.studioMcp', v ? '1' : '0')
     set({ studioMcp: v })

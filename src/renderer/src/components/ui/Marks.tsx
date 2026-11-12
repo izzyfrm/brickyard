@@ -16,6 +16,12 @@ import { cn } from '../../lib/cn'
  * Real provider logos (bundled SVGs from @lobehub/icons-static-svg, MIT), shown only to
  * identify which agent is which. Monochrome marks inherit the text color.
  */
+const PLUG = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />
+  </svg>
+)
+
 const LOGOS: Record<string, string> = { claude, codex, cursor, gemini, grok, muse, nvidia, ollama, opencode, pi }
 
 export function ProviderMark({ id, size = 22, dim = false }: { id: ProviderId | string; size?: number; dim?: boolean }): React.JSX.Element {
@@ -29,7 +35,7 @@ export function ProviderMark({ id, size = 22, dim = false }: { id: ProviderId | 
         dim && 'opacity-40 grayscale'
       )}
       style={{ width: size, height: size, borderRadius: size * 0.3, padding: size * 0.19 }}
-      {...(svg ? { dangerouslySetInnerHTML: { __html: svg } } : { children: '?' })}
+      {...(svg ? { dangerouslySetInnerHTML: { __html: svg } } : { children: String(id).startsWith('custom-') ? PLUG : '?' })}
     />
   )
 }

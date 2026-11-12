@@ -1,7 +1,21 @@
-import { ArrowUp, Check, ChevronDown, Cpu, Eye, Folder, FolderPlus, PencilLine, RefreshCw, Search, ShieldOff, Square } from 'lucide-react'
+import {
+  ArrowUp,
+  Plus,
+  Check,
+  ChevronDown,
+  Cpu,
+  Eye,
+  Folder,
+  FolderPlus,
+  PencilLine,
+  RefreshCw,
+  Search,
+  ShieldOff,
+  Square
+} from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
-import type { Access, ModelInfo } from '../../../shared/types'
+import type { Access, ModelInfo, ProviderStatus } from '../../../shared/types'
 import { ProviderMark, StudioIcon } from '../components/ui/Marks'
 import { Popover } from '../components/ui/Overlays'
 import { cn } from '../lib/cn'
@@ -14,12 +28,20 @@ const chip =
 const row =
   'flex w-full items-center gap-2.5 rounded-[10px] px-2 py-1.5 text-left text-[13px] outline-none transition-colors hover:bg-white/[0.07] focus-visible:bg-white/[0.07] disabled:pointer-events-none disabled:opacity-45'
 
+const GROUP_NAMES = ['Agent', 'Model hosts', 'Your providers']
+const group = (p: ProviderStatus): number => (p.custom ? 2 : p.kind === 'hosted' ? 1 : 0)
+
 function ProviderPicker(): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const providers = useStore((s) => s.providers)
   const configure = useStore((s) => s.configure)
   const cfg = useConfig()
   const current = providers.find((p) => p.id === cfg.providerId)
+  // Ready agents first inside each group, so the usable ones are on top.
+  const sorted = [...providers].sort(
+    (a, b) =>
+      group(a) - group(b) || Number(b.installed && b.supported) - Number(a.installed && a.supported)
+  )
   return (
     <Popover
       open={open}
@@ -34,29 +56,54 @@ function ProviderPicker(): React.JSX.Element {
       }
     >
       <div className="label px-2 pb-1 pt-1.5">Agent</div>
-      {providers.map((p) => {
+      {sorted.map((p, i) => {
+        // One heading per group, regardless of the order providers were detected in.
+        const g = group(p)
+        const heading = i > 0 && group(sorted[i - 1]) !== g ? GROUP_NAMES[g] : null
         const usable = p.installed && p.supported
         return (
-          <button
-            key={p.id}
-            disabled={!usable}
-            className={row}
-            onClick={() => {
-              if (p.id !== cfg.providerId) configure({ providerId: p.id, model: null })
-              setOpen(false)
-            }}
-          >
-            <ProviderMark id={p.id} size={20} dim={!usable} />
-            <span className="flex-1">{p.name}</span>
-            {!usable && (
-              <span className="text-[11px] text-fg3">
-                {p.id === 'nvidia' ? 'Add key in Settings' : p.id === 'ollama' ? 'Ollama not running' : p.installed ? 'No adapter yet' : 'Not installed'}
-              </span>
+          <div key={p.id}>
+            {heading && (
+              <div className="label mt-1 border-t border-line px-2 pb-1 pt-2">{heading}</div>
             )}
-            {p.id === cfg.providerId && <Check className="size-3.5 text-ember" />}
-          </button>
+            <button
+              className={cn(row, !usable && 'text-fg2')}
+              onClick={() => {
+                setOpen(false)
+                if (!usable) return useStore.getState().openGuide(p.id)
+                if (p.id !== cfg.providerId) configure({ providerId: p.id, model: null })
+              }}
+            >
+              <ProviderMark id={p.id} size={20} dim={!usable} />
+              <span className="flex-1">{p.name}</span>
+              {!usable && (
+                <span className="text-[11px] text-fg3">
+                  {p.id === 'nvidia'
+                    ? 'Add key'
+                    : p.id === 'ollama'
+                      ? 'Start Ollama'
+                      : p.installed
+                        ? 'Coming soon'
+                        : 'Set up'}{' '}
+                  →
+                </span>
+              )}
+              {p.id === cfg.providerId && <Check className="size-3.5 text-ember" />}
+            </button>
+          </div>
         )
       })}
+      <div className="mt-1 border-t border-line pt-1">
+        <button
+          className={row}
+          onClick={() => {
+            setOpen(false)
+            useStore.getState().openGuide('custom')
+          }}
+        >
+          <Plus className="size-4 text-fg2" /> Add your own provider
+        </button>
+      </div>
     </Popover>
   )
 }
@@ -84,9 +131,16 @@ function ModelPicker(): React.JSX.Element {
   }
 
   const q = query.trim().toLowerCase()
-  const shown = (models ?? []).filter((m) => !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q) || m.hint?.toLowerCase().includes(q))
+  const shown = (models ?? []).filter(
+    (m) =>
+      !q ||
+      m.id.toLowerCase().includes(q) ||
+      m.name.toLowerCase().includes(q) ||
+      m.hint?.toLowerCase().includes(q)
+  )
   const current = models?.find((m) => m.id === cfg.model)
-  const custom = query.trim() && !(models ?? []).some((m) => m.id.toLowerCase() === q) ? query.trim() : null
+  const custom =
+    query.trim() && !(models ?? []).some((m) => m.id.toLowerCase() === q) ? query.trim() : null
   const pick = (id: string | null): void => {
     configure({ model: id })
     setOpen(false)
@@ -103,8 +157,16 @@ function ModelPicker(): React.JSX.Element {
       trigger={
         <button className={chip} aria-label="Choose model">
           <Cpu className="size-3.5" />
-          <span className="max-w-[150px] truncate">{cfg.model ? (current?.name ?? cfg.model) : providerId === 'opencode' ? 'Free model' : 'Default model'}</span>
-          {current?.free && <span className="size-1.5 shrink-0 rounded-full bg-ok" title="Free model" />}
+          <span className="max-w-[150px] truncate">
+            {cfg.model
+              ? (current?.name ?? cfg.model)
+              : providerId === 'opencode'
+                ? 'Free model'
+                : 'Default model'}
+          </span>
+          {current?.free && (
+            <span className="size-1.5 shrink-0 rounded-full bg-ok" title="Free model" />
+          )}
           <ChevronDown className="size-3 text-fg3" />
         </button>
       }
@@ -138,20 +200,32 @@ function ModelPicker(): React.JSX.Element {
           <button className={row} onClick={() => pick(null)}>
             <span className="flex-1">
               <span className="block">Default</span>
-              <span className="block text-[11px] leading-snug text-fg3">{providerId === 'opencode' ? 'A free OpenCode model, picked for coding' : 'Whatever the CLI is set to use'}</span>
+              <span className="block text-[11px] leading-snug text-fg3">
+                {providerId === 'opencode'
+                  ? 'A free OpenCode model, picked for coding'
+                  : 'Whatever the CLI is set to use'}
+              </span>
             </span>
             {!cfg.model && <Check className="size-3.5 text-ember" />}
           </button>
         )}
-        {models === null && <div className="shimmer px-2 py-2 text-[13px]">Asking the CLI for its models</div>}
+        {models === null && (
+          <div className="shimmer px-2 py-2 text-[13px]">Asking the CLI for its models</div>
+        )}
         {shown.map((m) => (
           <button key={m.id} className={row} onClick={() => pick(m.id)}>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5">
                 <span className="truncate">{m.name}</span>
-                {m.free && <span className="label shrink-0 rounded bg-ok/12 px-1.5 py-px !text-[9px] !tracking-[0.12em] !text-ok">Free</span>}
+                {m.free && (
+                  <span className="label shrink-0 rounded bg-ok/12 px-1.5 py-px !text-[9px] !tracking-[0.12em] !text-ok">
+                    Free
+                  </span>
+                )}
               </span>
-              <span className="block truncate font-mono text-[10.5px] text-fg3">{[m.hint, m.name !== m.id ? m.id : null].filter(Boolean).join(' · ') || m.id}</span>
+              <span className="block truncate font-mono text-[10.5px] text-fg3">
+                {[m.hint, m.name !== m.id ? m.id : null].filter(Boolean).join(' · ') || m.id}
+              </span>
             </span>
             {m.id === cfg.model && <Check className="size-3.5 shrink-0 text-ember" />}
           </button>
@@ -162,12 +236,16 @@ function ModelPicker(): React.JSX.Element {
               <span className="block truncate">
                 Use <span className="font-mono text-[12px]">{custom}</span>
               </span>
-              <span className="block text-[11px] leading-snug text-fg3">Send this exact id to the CLI</span>
+              <span className="block text-[11px] leading-snug text-fg3">
+                Send this exact id to the CLI
+              </span>
             </span>
           </button>
         )}
         {models !== null && models.length === 0 && !custom && (
-          <div className="px-2 py-2 text-xs leading-snug text-fg3">This CLI did not report a model list. Type a model id to use it.</div>
+          <div className="px-2 py-2 text-xs leading-snug text-fg3">
+            This CLI did not report a model list. Type a model id to use it.
+          </div>
         )}
       </div>
     </Popover>
@@ -176,7 +254,12 @@ function ModelPicker(): React.JSX.Element {
 
 const ACCESS: { id: Access; name: string; hint: string; icon: typeof Eye }[] = [
   { id: 'ask', name: 'Plan only', hint: 'Reads and plans. Changes nothing.', icon: Eye },
-  { id: 'edit', name: 'Edit', hint: 'Edits files and Studio. Risky commands are blocked.', icon: PencilLine },
+  {
+    id: 'edit',
+    name: 'Edit',
+    hint: 'Edits files and Studio. Risky commands are blocked.',
+    icon: PencilLine
+  },
   { id: 'full', name: 'Full access', hint: 'No permission checks at all.', icon: ShieldOff }
 ]
 
@@ -191,7 +274,10 @@ function AccessPicker(): React.JSX.Element {
       onOpenChange={setOpen}
       className="w-[270px]"
       trigger={
-        <button className={cn(chip, cfg.access === 'full' && 'text-ember hover:text-ember')} aria-label="Access level">
+        <button
+          className={cn(chip, cfg.access === 'full' && 'text-ember hover:text-ember')}
+          aria-label="Access level"
+        >
           <cur.icon className="size-3.5" />
           {cur.name}
           <ChevronDown className="size-3 text-fg3" />
@@ -234,7 +320,8 @@ function ProjectPicker(): React.JSX.Element {
     </>
   )
   // A thread stays in the folder it started in: its CLI session lives there.
-  if (locked) return <span className="flex h-7 items-center gap-1.5 px-2 text-xs text-fg3">{label}</span>
+  if (locked)
+    return <span className="flex h-7 items-center gap-1.5 px-2 text-xs text-fg3">{label}</span>
   return (
     <Popover
       open={open}
@@ -248,7 +335,10 @@ function ProjectPicker(): React.JSX.Element {
       }
     >
       <div className="label px-2 pb-1 pt-1.5">Work in</div>
-      {[{ id: null as string | null, name: 'No project', path: 'Runs in your home folder' }, ...projects].map((p) => (
+      {[
+        { id: null as string | null, name: 'No project', path: 'Runs in your home folder' },
+        ...projects
+      ].map((p) => (
         <button
           key={p.id ?? 'none'}
           className={row}
@@ -293,11 +383,19 @@ function StudioToggle(): React.JSX.Element | null {
       aria-pressed={on}
       onClick={() => setStudioMcp(!on)}
       title={on ? 'Roblox Studio tools are attached to this agent' : 'Roblox Studio tools are off'}
-      className={cn(chip, on && 'bg-ember/[0.12] text-ember hover:bg-ember/[0.18] hover:text-ember')}
+      className={cn(
+        chip,
+        on && 'bg-ember/[0.12] text-ember hover:bg-ember/[0.18] hover:text-ember'
+      )}
     >
       <StudioIcon className="size-3.5" />
       Studio
-      <span className={cn('size-1.5 rounded-full transition-colors', on ? 'bg-ember shadow-[0_0_6px_var(--ember)]' : 'bg-fg3/60')} />
+      <span
+        className={cn(
+          'size-1.5 rounded-full transition-colors',
+          on ? 'bg-ember shadow-[0_0_6px_var(--ember)]' : 'bg-fg3/60'
+        )}
+      />
     </button>
   )
 }
@@ -347,7 +445,11 @@ export function Composer({ autoFocusKey }: { autoFocusKey: string }): React.JSX.
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           const mod = e.ctrlKey || e.metaKey
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing && (sendKey === 'enter' ? !e.shiftKey : mod)) {
+          if (
+            e.key === 'Enter' &&
+            !e.nativeEvent.isComposing &&
+            (sendKey === 'enter' ? !e.shiftKey : mod)
+          ) {
             e.preventDefault()
             submit()
           }

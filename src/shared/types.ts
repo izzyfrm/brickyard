@@ -1,6 +1,10 @@
 // Types shared by main, preload and renderer.
 
-export type ProviderId = 'claude' | 'codex' | 'opencode' | 'gemini' | 'grok' | 'nvidia' | 'ollama' | 'cursor' | 'muse' | 'pi'
+export type BuiltinId = 'claude' | 'codex' | 'opencode' | 'gemini' | 'grok' | 'nvidia' | 'ollama' | 'cursor' | 'muse' | 'pi'
+/** Built-in providers, plus ones the user adds (always prefixed "custom-"). */
+export type ProviderId = BuiltinId | `custom-${string}`
+
+export const isCustomId = (id: string): id is `custom-${string}` => id.startsWith('custom-')
 
 export interface ProviderStatus {
   id: ProviderId
@@ -18,6 +22,8 @@ export interface ProviderStatus {
   /** Hosted providers that need a key Brickyard stores (NVIDIA). */
   needsKey: boolean
   hasKey: boolean
+  /** Added by the user in Settings. */
+  custom: boolean
   installed: boolean
   path: string | null
   version: string | null
@@ -30,6 +36,24 @@ export interface ModelInfo {
   hint?: string
   /** No charge to the user. Free models usually log prompts and may train on them. */
   free?: boolean
+}
+
+export interface CustomProvider {
+  id: `custom-${string}`
+  name: string
+  baseURL: string
+  /** Model ids typed by the user; the endpoint's own list is added at runtime. */
+  models: string[]
+  hasKey: boolean
+}
+
+export interface CustomProviderInput {
+  id?: `custom-${string}`
+  name: string
+  baseURL: string
+  models: string[]
+  /** undefined keeps the saved key, null or '' removes it. */
+  apiKey?: string | null
 }
 
 export interface UpdateInfo {
@@ -129,6 +153,10 @@ export interface Api {
   openRelease(url: string): Promise<void>
   setKey(name: 'nvidia', key: string | null): Promise<{ ok: boolean; message: string }>
   testKey(name: 'nvidia', key: string): Promise<{ ok: boolean; message: string }>
+  listCustom(): Promise<CustomProvider[]>
+  testCustom(baseURL: string, apiKey: string | null): Promise<{ ok: boolean; message: string; count: number }>
+  saveCustom(input: CustomProviderInput): Promise<{ ok: boolean; message: string; provider?: CustomProvider }>
+  removeCustom(id: string): Promise<void>
   listModels(id: ProviderId, refresh?: boolean): Promise<ModelInfo[]>
   loadStore(): Promise<StoreData>
   saveStore(data: StoreData): Promise<void>

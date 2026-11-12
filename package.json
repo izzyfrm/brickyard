@@ -1,6 +1,6 @@
 {
   "name": "brickyard",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "A control surface for building Roblox games with the AI coding agents you already use.",
   "main": "./out/main/index.js",
   "author": "Brickyard contributors",

@@ -6,9 +6,11 @@ import { cancelAll, cancelRun, runTurn } from './agents'
 import { gitChanges, gitDiff, listDir, readText } from './files'
 import { listModels } from './models'
 import { checkNvidiaKey } from './hosted'
+import { listCustom, removeCustom, saveCustom, testCustom } from './custom'
+import type { CustomProviderInput } from '../shared/types'
 import { checkForUpdate, currentVersion, isReleaseUrl } from './updates'
 import { setKey, hasKey } from './keys'
-import { detectProviders, setKeyCheck, studioStatus } from './providers'
+import { detectProviders, setCustomSource, setKeyCheck, studioStatus } from './providers'
 import { loadStore, saveStore } from './store'
 
 function createWindow(): void {
@@ -59,6 +61,17 @@ app.whenReady().then(() => {
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
 
   setKeyCheck((id) => id === 'nvidia' && hasKey('nvidia'))
+  setCustomSource(() => listCustom())
+  ipcMain.handle('custom:list', () => listCustom())
+  ipcMain.handle('custom:test', (_e, baseURL: string, apiKey: string | null) => testCustom(String(baseURL ?? ''), apiKey ? String(apiKey) : null))
+  ipcMain.handle('custom:save', async (_e, input: CustomProviderInput) => {
+    try {
+      return await saveCustom(input)
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
+  })
+  ipcMain.handle('custom:remove', (_e, id: string) => removeCustom(String(id)))
   ipcMain.handle('providers:list', () => detectProviders())
   ipcMain.handle('keys:test', (_e, _name: 'nvidia', key: string) => checkNvidiaKey(String(key ?? '').trim()))
   ipcMain.handle('keys:set', async (_e, name: 'nvidia', key: string | null) => {

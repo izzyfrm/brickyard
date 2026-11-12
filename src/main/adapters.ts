@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { Access, AgentEvent, ProviderId, RunRequest } from '../shared/types'
-import { hostedRun } from './hosted'
+import { HOSTED, hostedRun, type HostDef } from './hosted'
 import { ownStudioServers, studioServer } from './providers'
 
 export type Emit = (e: AgentEvent) => void
@@ -20,7 +20,9 @@ export interface Ctx {
   /** Brickyard's own MCP server, which lets this agent call the user's other agents. */
   peerMcp?: McpServer
   /** Keys Brickyard stores itself, handed to the engine by environment variable. */
-  secrets?: { nvidia?: string }
+  /** The model host for NVIDIA, Ollama or a custom provider, and its key if any. */
+  host?: HostDef
+  hostSecret?: string
 }
 
 export interface Adapter {
@@ -291,11 +293,13 @@ const grok: Adapter = {
 
 /** OpenCode as the engine for a model host. `--standalone` is required: OpenCode's shared
  *  background service ignores per-run config, a private server reads it. */
-function hostedAdapter(id: 'nvidia' | 'ollama'): Adapter {
+function hostedAdapter(id: 'nvidia' | 'ollama' | 'custom'): Adapter {
   return {
     args(req, ctx) {
       if (!req.model) throw new Error('No model selected.')
-      const run = hostedRun(id, req.model, req.threadId, ctx.dataDir, id === 'nvidia' ? ctx.secrets?.nvidia : undefined)
+      const def = id === 'custom' ? ctx.host : HOSTED[id]
+      if (!def) throw new Error('This provider is not set up.')
+      const run = hostedRun(def, req.model, req.threadId, ctx.dataDir, ctx.hostSecret)
       const a = ['run', '--standalone', '--format', 'json', '-m', run.modelArg]
       if (req.access === 'full') a.push('--auto')
       if (req.sessionId) a.push('--session', req.sessionId)
@@ -305,5 +309,7 @@ function hostedAdapter(id: 'nvidia' | 'ollama'): Adapter {
     parse: opencode.parse
   }
 }
+
+export const customAdapter = hostedAdapter('custom')
 
 export const ADAPTERS: Partial<Record<ProviderId, Adapter>> = { claude, codex, gemini, opencode, grok, nvidia: hostedAdapter('nvidia'), ollama: hostedAdapter('ollama') }

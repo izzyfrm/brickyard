@@ -3,7 +3,7 @@
 import type { AgentEvent, Api, ProviderId, ProviderStatus, StoreData } from '../../../shared/types'
 
 const def = (id: ProviderId, name: string, installed: boolean, version: string | null, supported = true, studioMcp = false): ProviderStatus => ({
-  id, name, command: id, authHint: `Run \`${id} login\`.`, supported, studioMcp, studioMcpOwn: false, kind: 'cli', needsKey: false, hasKey: false,
+  id, name, command: id, authHint: `Run \`${id} login\`.`, supported, studioMcp, studioMcpOwn: false, kind: 'cli', needsKey: false, hasKey: false, custom: false,
   installed, path: installed ? `C:/Users/dev/AppData/Roaming/npm/${id}.cmd` : null, version
 })
 
@@ -66,6 +66,10 @@ export function installDevMock(): void {
     testKey: async () => ({ ok: true, message: 'Key works. 61 chat models available.' }),
     checkUpdate: async () => ({ current: '0.1.0-beta.2', update: { version: '0.1.0-beta.3', name: 'Brickyard 0.1.0 beta 3', url: 'https://github.com/izzyfrm/brickyard/releases/tag/v0.1.0-beta.3', publishedAt: new Date().toISOString() } }),
     openRelease: async () => {},
+    listCustom: async () => [],
+    testCustom: async () => ({ ok: true, message: 'Connected. 312 models found.', count: 312 }),
+    saveCustom: async (i) => ({ ok: true, message: `${i.name} added.` }),
+    removeCustom: async () => {},
     appInfo: async () => ({ version: '0.1.0-beta.1', dataDir: 'C:/Users/dev/AppData/Roaming/brickyard' }),
     loadStore: async () => JSON.parse(localStorage.getItem('mock.store') ?? '{"projects":[],"threads":[]}') as StoreData,
     saveStore: async (d) => localStorage.setItem('mock.store', JSON.stringify(d)),

@@ -89,6 +89,12 @@ export function setKeyCheck(fn: (id: ProviderId) => boolean): void {
 
 const HOSTED_IDS = new Set<ProviderId>(['nvidia', 'ollama'])
 
+/** User-added providers, supplied by the main process so this file stays free of Electron. */
+let customSource: () => { id: `custom-${string}`; name: string; baseURL: string; hasKey: boolean }[] = () => []
+export function setCustomSource(fn: typeof customSource): void {
+  customSource = fn
+}
+
 async function cliVersion(path: string): Promise<string | null> {
   try {
     const l = await resolveLaunch(path)
@@ -106,7 +112,7 @@ export async function detectProviders(): Promise<ProviderStatus[]> {
     PROVIDERS.map(async (p): Promise<ProviderStatus> => {
       const path = await which(p.command)
       const hosted = HOSTED_IDS.has(p.id)
-      const base = { ...p, kind: hosted ? ('hosted' as const) : ('cli' as const), needsKey: p.id === 'nvidia', hasKey: p.id === 'nvidia' && keyCheck('nvidia') }
+      const base = { ...p, kind: hosted ? ('hosted' as const) : ('cli' as const), needsKey: p.id === 'nvidia', hasKey: p.id === 'nvidia' && keyCheck('nvidia'), custom: false }
       if (!hosted) return { ...base, installed: !!path, path, version: path ? await cliVersion(path) : null, studioMcpOwn: ownStudioServers(p.id, null).length > 0 }
       // Hosted: OpenCode is the engine, plus the host itself must be usable.
       const ready = !!path && (p.id === 'nvidia' ? base.hasKey : await ollamaUp)
@@ -115,6 +121,25 @@ export async function detectProviders(): Promise<ProviderStatus[]> {
       return { ...base, installed: ready, path, version, studioMcpOwn: false }
     })
   )
+  // Custom providers need only OpenCode, the engine.
+  const opencodePath = list.find((p) => p.id === 'opencode')?.path ?? null
+  for (const c of customSource())
+    list.push({
+      id: c.id,
+      name: c.name,
+      command: 'opencode',
+      authHint: 'Needs OpenCode installed. Edit it in Settings → Agents.',
+      supported: true,
+      studioMcp: false,
+      studioMcpOwn: false,
+      kind: 'hosted',
+      needsKey: false,
+      hasKey: c.hasKey,
+      custom: true,
+      installed: !!opencodePath,
+      path: opencodePath,
+      version: new URL(c.baseURL).host
+    })
   for (const p of list) cache.set(p.id, p)
   return list
 }

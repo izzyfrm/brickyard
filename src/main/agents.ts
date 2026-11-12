@@ -3,8 +3,9 @@ import { app } from 'electron'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { createInterface } from 'readline'
-import type { RunRequest } from '../shared/types'
-import { ADAPTERS, type Ctx, type Emit, type Json } from './adapters'
+import { isCustomId, type RunRequest } from '../shared/types'
+import { ADAPTERS, customAdapter, type Ctx, type Emit, type Json } from './adapters'
+import { getCustom } from './custom'
 import { isHosted, pickDefault } from './hosted'
 import { getKey } from './keys'
 import { freeOpenCodeModel, listModels } from './models'
@@ -20,11 +21,18 @@ function peerScript(): string {
 
 async function buildCtx(req: RunRequest): Promise<Ctx> {
   const dataDir = join(app.getPath('userData'), 'runs')
-  const nvidia = req.providerId === 'nvidia' ? getKey('nvidia') : null
-  const ctx: Ctx = { dataDir, secrets: nvidia ? { nvidia } : undefined }
+  const ctx: Ctx = { dataDir }
+  if (req.providerId === 'nvidia') ctx.hostSecret = getKey('nvidia') ?? undefined
+  if (isCustomId(req.providerId)) {
+    const c = getCustom(req.providerId)
+    if (c) {
+      ctx.host = { key: c.id, name: c.name, baseURL: c.baseURL, keyEnv: c.apiKey ? 'BRICKYARD_CUSTOM_API_KEY' : undefined }
+      ctx.hostSecret = c.apiKey ?? undefined
+    }
+  }
   if (!req.delegate || !CAN_LEAD.has(req.providerId)) return ctx
   const peers = (await detectProviders())
-    .filter((p) => p.installed && p.supported && p.path && p.id !== req.providerId && !p.needsKey)
+    .filter((p) => p.installed && p.supported && p.path && p.id !== req.providerId && !p.needsKey && !p.custom)
     .map((p) => ({ id: p.id, name: p.name, path: p.path }))
   if (!peers.length) return ctx
   mkdirSync(dataDir, { recursive: true })
@@ -58,7 +66,7 @@ export function cancelAll(): void {
 }
 
 export async function runTurn(req: RunRequest, emit: Emit): Promise<void> {
-  const adapter = ADAPTERS[req.providerId]
+  const adapter = ADAPTERS[req.providerId] ?? (isCustomId(req.providerId) ? customAdapter : undefined)
   const fail = (message: string): void => {
     emit({ kind: 'error', message })
     emit({ kind: 'done' })

@@ -21,7 +21,7 @@ export const HOSTED: Partial<Record<ProviderId, { key: string; name: string; bas
   ollama: { key: 'brickyard-ollama', name: 'Ollama', baseURL: `${OLLAMA_BASE}/v1` }
 }
 
-export const isHosted = (id: ProviderId): boolean => id in HOSTED
+export const isHosted = (id: ProviderId): boolean => id in HOSTED || id.startsWith('custom-')
 
 async function getJson(url: string, headers: Record<string, string> = {}, ms = 4000): Promise<unknown> {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(ms) })
@@ -110,9 +110,25 @@ export function pickDefault(id: ProviderId, models: ModelInfo[]): string | null 
   return models[0]?.id ?? null
 }
 
+/** Any OpenAI-compatible endpoint's model list. */
+export async function openAIModels(baseURL: string, key: string | null): Promise<ModelInfo[]> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (key) headers.Authorization = `Bearer ${key}`
+  const d = (await getJson(`${baseURL.replace(/\/+$/, '')}/models`, headers, 8000)) as { data?: { id: string; owned_by?: string }[] }
+  return (d.data ?? []).map((m) => ({ id: m.id, name: m.id, hint: m.owned_by })).sort((a, b) => a.id.localeCompare(b.id))
+}
+
+export interface HostDef {
+  key: string
+  name: string
+  baseURL: string
+  keyEnv?: string
+}
+
 /** Writes the per-run OpenCode config and returns the env that points OpenCode at it. */
-export function hostedRun(id: ProviderId, model: string, runId: string, dataDir: string, secret?: string): { modelArg: string; env: Record<string, string> } {
-  const h = HOSTED[id]!
+export function hostedRun(def: HostDef, model: string, runId: string, dataDir: string, secret?: string): { modelArg: string; env: Record<string, string> } {
+  const h = def
+  const id = def.key
   const options: Record<string, string> = { baseURL: h.baseURL }
   // OpenCode substitutes {env:NAME}, so the key itself never touches the file.
   options.apiKey = h.keyEnv ? `{env:${h.keyEnv}}` : 'ollama'
@@ -121,7 +137,7 @@ export function hostedRun(id: ProviderId, model: string, runId: string, dataDir:
     provider: { [h.key]: { npm: '@ai-sdk/openai-compatible', name: `${h.name} (Brickyard)`, options, models: { [model]: { name: model } } } }
   }
   mkdirSync(dataDir, { recursive: true })
-  const file = join(dataDir, `opencode-${id}-${runId}.json`)
+  const file = join(dataDir, `opencode-${id.replace(/[^\w-]/g, '')}-${runId}.json`)
   writeFileSync(file, JSON.stringify(config))
   const env: Record<string, string> = { OPENCODE_CONFIG: file }
   if (h.keyEnv && secret) env[h.keyEnv] = secret

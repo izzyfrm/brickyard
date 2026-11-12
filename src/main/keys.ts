@@ -7,7 +7,8 @@ import { app, safeStorage } from 'electron'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { dirname, join } from 'path'
 
-type KeyName = 'nvidia'
+/** 'nvidia', or 'custom:<provider id>' for user-added providers. */
+type KeyName = string
 const file = (): string => join(app.getPath('userData'), 'keys.json')
 
 function readAll(): Partial<Record<KeyName, string>> {

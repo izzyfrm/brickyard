@@ -6,6 +6,8 @@ import { promisify } from 'util'
 import type { ModelInfo, ProviderId } from '../shared/types'
 import { nvidiaModels, ollamaModels } from './hosted'
 import { getKey } from './keys'
+import { customModels } from './custom'
+import { isCustomId } from '../shared/types'
 import { cachedProvider, resolveLaunch } from './providers'
 
 const run = promisify(execFile)
@@ -105,7 +107,7 @@ const cache = new Map<ProviderId, ModelInfo[]>()
 export async function listModels(id: ProviderId, refresh = false): Promise<ModelInfo[]> {
   if (!refresh && cache.has(id)) return cache.get(id)!
   try {
-    const list = (await LOADERS[id]?.()) ?? []
+    const list = (isCustomId(id) ? await customModels(id) : await LOADERS[id]?.()) ?? []
     if (list.length) cache.set(id, list)
     return list
   } catch {
