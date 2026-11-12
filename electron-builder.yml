@@ -16,6 +16,7 @@ asarUnpack:
   - out/main/**
 win:
   executableName: Brickyard
+  icon: build/icon.ico
   target:
     - nsis
 nsis:
@@ -23,6 +24,9 @@ nsis:
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
 mac:
   notarize: false
 dmg:
