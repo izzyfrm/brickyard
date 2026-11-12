@@ -1,0 +1,409 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/*
+ * Brickyard — "kiln" direction.
+ * True black, one ember light source, film grain, mono micro-labels, tactile controls.
+ * Surfaces are lit from above: every raised thing has a 1px top highlight and sits on a shadow.
+ */
+:root {
+  --bg: #050505;
+  --panel: #0a0a0a;
+  --raised: #111110;
+  --raised-2: #171716;
+  --fg: #f4f3f1;
+  --fg-2: #a4a39f;
+  --fg-3: #6a6965;
+  --line: rgb(255 255 255 / 7%);
+  --line-2: rgb(255 255 255 / 12%);
+  --ember: oklch(0.7 0.195 42);
+  --ember-hi: oklch(0.8 0.16 62);
+  --ok: oklch(0.8 0.16 155);
+  --bad: oklch(0.68 0.2 25);
+  --spring: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+  --font-sans: 'Geist Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-raised2: var(--raised-2);
+  --color-fg: var(--fg);
+  --color-fg2: var(--fg-2);
+  --color-fg3: var(--fg-3);
+  --color-line: var(--line);
+  --color-line2: var(--line-2);
+  --color-ember: var(--ember);
+  --color-ember-hi: var(--ember-hi);
+  --color-ok: var(--ok);
+  --color-bad: var(--bad);
+  --ease-spring: var(--spring);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+  overflow: hidden;
+}
+::selection {
+  background: color-mix(in oklch, var(--ember) 45%, transparent);
+  color: #fff;
+}
+.drag {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+.selectable {
+  user-select: text;
+}
+button {
+  cursor: pointer;
+}
+
+/* Film grain over everything; costs one composited layer. */
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.055;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Mono micro-label: the system's voice for metadata. */
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* The ember: a low sun behind the hero. */
+.ember-sky {
+  background:
+    radial-gradient(64% 52% at 50% 104%, color-mix(in oklch, var(--ember) 62%, transparent) 0%, transparent 70%),
+    radial-gradient(36% 30% at 50% 100%, color-mix(in oklch, var(--ember-hi) 75%, transparent) 0%, transparent 72%),
+    radial-gradient(90% 60% at 50% 120%, color-mix(in oklch, var(--ember) 45%, transparent) 0%, transparent 70%);
+}
+.ember-text {
+  background: linear-gradient(92deg, var(--ember-hi), var(--ember) 55%, color-mix(in oklch, var(--ember) 78%, black));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Lit surfaces */
+.lit {
+  background: linear-gradient(180deg, var(--raised-2), var(--raised));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 7%),
+    0 0 0 1px var(--line),
+    0 1px 2px rgb(0 0 0 / 60%);
+}
+.stage {
+  background: var(--panel);
+  box-shadow:
+    0 0 0 1px var(--line),
+    inset 0 1px 0 rgb(255 255 255 / 4%);
+}
+.float {
+  background: color-mix(in oklch, var(--raised) 92%, transparent);
+  backdrop-filter: blur(20px) saturate(1.2);
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 24px 60px -12px rgb(0 0 0 / 85%),
+    0 4px 12px rgb(0 0 0 / 50%);
+}
+
+/* Composer: glows ember when it has focus. */
+.composer {
+  background: linear-gradient(180deg, var(--raised-2), var(--raised));
+  box-shadow:
+    0 0 0 1px var(--line-2),
+    inset 0 1px 0 rgb(255 255 255 / 7%),
+    0 20px 50px -20px rgb(0 0 0 / 90%);
+  transition: box-shadow 260ms var(--spring);
+}
+.composer:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--ember) 65%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    0 0 0 4px color-mix(in oklch, var(--ember) 14%, transparent),
+    0 18px 60px -18px color-mix(in oklch, var(--ember) 45%, transparent);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 9%);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 18%);
+  background-clip: content-box;
+  border: 3px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Motion */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--fg-3) 0%, var(--fg-3) 35%, var(--fg) 50%, var(--fg-3) 65%, var(--fg-3) 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+.pulse-ring {
+  animation: pulse-ring 1.8s var(--spring) infinite;
+}
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+.caret::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.18em;
+  border-radius: 1.5px;
+  background: var(--ember);
+  animation: caret 1s steps(1) infinite;
+}
+
+/* Markdown */
+.md {
+  user-select: text;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #e9e8e5;
+  overflow-wrap: anywhere;
+}
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+.md p,
+.md ul,
+.md ol,
+.md pre,
+.md table,
+.md blockquote {
+  margin: 0.7em 0;
+}
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: 1.3em 0 0.45em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+  line-height: 1.3;
+}
+.md h1 {
+  font-size: 1.3em;
+}
+.md h2 {
+  font-size: 1.15em;
+}
+.md h3,
+.md h4 {
+  font-size: 1em;
+}
+.md ul {
+  list-style: disc;
+  padding-left: 1.3em;
+}
+.md ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.md li {
+  margin: 0.2em 0;
+}
+.md li::marker {
+  color: var(--fg-3);
+}
+.md a {
+  color: var(--ember-hi);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--ember-hi) 40%, transparent);
+  text-underline-offset: 3px;
+}
+.md strong {
+  font-weight: 600;
+  color: var(--fg);
+}
+.md :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 0.12em 0.38em;
+  border-radius: 5px;
+  background: rgb(255 255 255 / 7%);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.md blockquote {
+  padding-left: 0.9em;
+  border-left: 2px solid var(--line-2);
+  color: var(--fg-2);
+}
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 1.2em 0;
+}
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.93em;
+}
+.md th,
+.md td {
+  text-align: left;
+  padding: 0.4em 0.7em;
+  border-bottom: 1px solid var(--line);
+}
+.md th {
+  color: var(--fg-2);
+  font-weight: 500;
+}
+
+/* Code */
+.md pre.code {
+  margin: 0;
+}
+.code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  tab-size: 2;
+  user-select: text;
+}
+.hljs-comment,
+.hljs-quote {
+  color: #62615d;
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-built_in {
+  color: oklch(0.76 0.15 48);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: oklch(0.82 0.11 135);
+}
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet {
+  color: oklch(0.82 0.12 85);
+}
+.hljs-title,
+.hljs-section,
+.hljs-function .hljs-title {
+  color: oklch(0.82 0.09 240);
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-type {
+  color: oklch(0.8 0.08 300);
+}
+.hljs-deletion {
+  color: var(--bad);
+}
+.hljs-meta {
+  color: var(--fg-3);
+}
+
+/* Settings → Appearance */
+.no-grain .grain::after {
+  display: none;
+}
+.no-glow .ember-sky {
+  display: none;
+}
+.no-glow .composer:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--ember) 65%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 9%);
+}
+.reduce-motion .shimmer,
+.reduce-motion .pulse-ring,
+.reduce-motion .caret::after {
+  animation: none;
+}
+.reduce-motion .shimmer {
+  color: var(--fg-3);
+}
+.reduce-motion * {
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .pulse-ring,
+  .caret::after {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}

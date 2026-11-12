@@ -1,0 +1,36 @@
+appId: dev.brickyard.app
+productName: Brickyard
+copyright: Copyright (c) 2026 Brickyard contributors
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+# The agent bridge (out/main/agent-mcp.js) is executed by other programs, so it must live outside the asar.
+asarUnpack:
+  - resources/**
+  - out/main/**
+win:
+  executableName: Brickyard
+  target:
+    - nsis
+nsis:
+  artifactName: Brickyard-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  notarize: false
+dmg:
+  artifactName: Brickyard-${version}.${ext}
+linux:
+  target:
+    - AppImage
+  category: Development
+appImage:
+  artifactName: Brickyard-${version}.${ext}
+npmRebuild: false
