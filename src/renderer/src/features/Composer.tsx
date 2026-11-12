@@ -48,7 +48,11 @@ function ProviderPicker(): React.JSX.Element {
           >
             <ProviderMark id={p.id} size={20} dim={!usable} />
             <span className="flex-1">{p.name}</span>
-            {!usable && <span className="text-[11px] text-fg3">{p.installed ? 'No adapter yet' : 'Not installed'}</span>}
+            {!usable && (
+              <span className="text-[11px] text-fg3">
+                {p.id === 'nvidia' ? 'Add key in Settings' : p.id === 'ollama' ? 'Ollama not running' : p.installed ? 'No adapter yet' : 'Not installed'}
+              </span>
+            )}
             {p.id === cfg.providerId && <Check className="size-3.5 text-ember" />}
           </button>
         )

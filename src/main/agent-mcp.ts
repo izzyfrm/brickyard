@@ -13,6 +13,7 @@ import { readFileSync } from 'fs'
 import { createInterface } from 'readline'
 import type { Access, AgentEvent, ProviderId } from '../shared/types'
 import { ADAPTERS, type Json } from './adapters'
+import { ollamaModels, pickDefault } from './hosted'
 import { resolveLaunch } from './providers'
 
 interface Peer {
@@ -57,6 +58,8 @@ async function askAgent(args: Json): Promise<{ text: string; isError: boolean }>
   if (!peer || !adapter) return { text: `Unknown agent "${args.agent}". Available: ${info.peers.map((p) => p.id).join(', ')}.`, isError: true }
   if (typeof args.prompt !== 'string' || !args.prompt.trim()) return { text: 'The prompt is empty.', isError: true }
 
+  let model = typeof args.model === 'string' ? args.model : null
+  if (!model && peer.id === 'ollama') model = pickDefault('ollama', await ollamaModels().catch(() => []))
   const launch = await resolveLaunch(peer.path)
   if (launch.shell) return { text: `Could not launch ${peer.name} safely.`, isError: true }
   const built = adapter.args(
@@ -66,7 +69,7 @@ async function askAgent(args: Json): Promise<{ text: string; isError: boolean }>
       prompt: args.prompt,
       cwd: info.cwd,
       sessionId: null,
-      model: typeof args.model === 'string' ? args.model : null,
+      model,
       access: info.access,
       // One agent drives Studio at a time, and a called agent may not call further agents.
       studioMcp: false,
@@ -83,7 +86,7 @@ async function askAgent(args: Json): Promise<{ text: string; isError: boolean }>
     const child = spawn(launch.file, [...launch.prefix, ...built.args], {
       cwd: info.cwd,
       windowsHide: true,
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ELECTRON_RUN_AS_NODE: undefined },
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ELECTRON_RUN_AS_NODE: undefined, ...built.env },
       stdio: ['pipe', 'pipe', 'pipe']
     })
     child.stdin?.on('error', () => {})

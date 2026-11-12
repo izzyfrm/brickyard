@@ -3,7 +3,7 @@
 import type { AgentEvent, Api, ProviderId, ProviderStatus, StoreData } from '../../../shared/types'
 
 const def = (id: ProviderId, name: string, installed: boolean, version: string | null, supported = true, studioMcp = false): ProviderStatus => ({
-  id, name, command: id, authHint: `Run \`${id} login\`.`, supported, studioMcp, studioMcpOwn: false,
+  id, name, command: id, authHint: `Run \`${id} login\`.`, supported, studioMcp, studioMcpOwn: false, kind: 'cli', needsKey: false, hasKey: false,
   installed, path: installed ? `C:/Users/dev/AppData/Roaming/npm/${id}.cmd` : null, version
 })
 
@@ -37,6 +37,8 @@ export function installDevMock(): void {
         def('gemini', 'Gemini', true, '0.67.0'),
         def('opencode', 'OpenCode', true, '2.2.7'),
         def('grok', 'Grok', true, '1.0.0'),
+        { ...def('nvidia', 'NVIDIA', false, null), kind: 'hosted', needsKey: true },
+        { ...def('ollama', 'Ollama', true, '0.40.14'), kind: 'hosted' },
         def('cursor', 'Cursor', false, null, false),
         def('muse', 'Muse Code', false, null, false),
         def('pi', 'Pi', false, null, false)
@@ -54,6 +56,8 @@ export function installDevMock(): void {
           ]
         : Array.from({ length: 30 }, (_, i) => ({ id: `vendor/model-${i + 1}`, name: `model-${i + 1}`, hint: 'vendor' }))
     },
+    setKey: async (_n, key) => (key ? { ok: true, message: 'Key works. 61 chat models available.' } : { ok: true, message: 'Key removed.' }),
+    testKey: async () => ({ ok: true, message: 'Key works. 61 chat models available.' }),
     appInfo: async () => ({ version: '0.1.0-beta.1', dataDir: 'C:/Users/dev/AppData/Roaming/brickyard' }),
     loadStore: async () => JSON.parse(localStorage.getItem('mock.store') ?? '{"projects":[],"threads":[]}') as StoreData,
     saveStore: async (d) => localStorage.setItem('mock.store', JSON.stringify(d)),

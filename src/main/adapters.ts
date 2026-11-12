@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { Access, AgentEvent, ProviderId, RunRequest } from '../shared/types'
+import { hostedRun } from './hosted'
 import { ownStudioServers, studioServer } from './providers'
 
 export type Emit = (e: AgentEvent) => void
@@ -18,11 +19,13 @@ export interface Ctx {
   dataDir: string
   /** Brickyard's own MCP server, which lets this agent call the user's other agents. */
   peerMcp?: McpServer
+  /** Keys Brickyard stores itself, handed to the engine by environment variable. */
+  secrets?: { nvidia?: string }
 }
 
 export interface Adapter {
   /** CLI args. `stdin`, when set, is written to the process and closed. */
-  args(req: RunRequest, ctx: Ctx): { args: string[]; stdin?: string }
+  args(req: RunRequest, ctx: Ctx): { args: string[]; stdin?: string; env?: Record<string, string> }
   /** Translate one JSON line from the CLI into Brickyard events. */
   parse(line: Json, emit: Emit, state: Json): void
 }
@@ -284,4 +287,23 @@ const grok: Adapter = {
   }
 }
 
-export const ADAPTERS: Partial<Record<ProviderId, Adapter>> = { claude, codex, gemini, opencode, grok }
+/* ---------------------------------------------------- NVIDIA and Ollama */
+
+/** OpenCode as the engine for a model host. `--standalone` is required: OpenCode's shared
+ *  background service ignores per-run config, a private server reads it. */
+function hostedAdapter(id: 'nvidia' | 'ollama'): Adapter {
+  return {
+    args(req, ctx) {
+      if (!req.model) throw new Error('No model selected.')
+      const run = hostedRun(id, req.model, req.threadId, ctx.dataDir, id === 'nvidia' ? ctx.secrets?.nvidia : undefined)
+      const a = ['run', '--standalone', '--format', 'json', '-m', run.modelArg]
+      if (req.access === 'full') a.push('--auto')
+      if (req.sessionId) a.push('--session', req.sessionId)
+      a.push(req.prompt)
+      return { args: a, env: run.env }
+    },
+    parse: opencode.parse
+  }
+}
+
+export const ADAPTERS: Partial<Record<ProviderId, Adapter>> = { claude, codex, gemini, opencode, grok, nvidia: hostedAdapter('nvidia'), ollama: hostedAdapter('ollama') }

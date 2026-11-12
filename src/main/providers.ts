@@ -4,6 +4,7 @@ import { homedir } from 'os'
 import { dirname, join } from 'path'
 import { promisify } from 'util'
 import type { ProviderId, ProviderStatus, StudioStatus } from '../shared/types'
+import { ollamaRunning } from './hosted'
 
 const run = promisify(execFile)
 
@@ -22,6 +23,8 @@ export const PROVIDERS: ProviderDef[] = [
   { id: 'gemini', name: 'Gemini', command: 'gemini', authHint: 'Run `gemini` and sign in.', supported: true, studioMcp: false },
   { id: 'opencode', name: 'OpenCode', command: 'opencode', authHint: 'Run `opencode auth login`.', supported: true, studioMcp: false },
   { id: 'grok', name: 'Grok', command: 'grok', authHint: 'Run `grok login`.', supported: true, studioMcp: false },
+  { id: 'nvidia', name: 'NVIDIA', command: 'opencode', authHint: 'Add your NVIDIA API key in Settings → Agents. Needs OpenCode installed.', supported: true, studioMcp: false },
+  { id: 'ollama', name: 'Ollama', command: 'opencode', authHint: 'Install Ollama and keep it running. Needs OpenCode installed.', supported: true, studioMcp: false },
   { id: 'cursor', name: 'Cursor', command: 'cursor-agent', authHint: 'Run `cursor-agent login`.', supported: false, studioMcp: false },
   { id: 'muse', name: 'Muse Code', command: 'muse', authHint: 'Install the Muse Code CLI and sign in.', supported: false, studioMcp: false },
   { id: 'pi', name: 'Pi', command: 'pi', authHint: 'Install the Pi coding agent CLI.', supported: false, studioMcp: false }
@@ -78,21 +81,38 @@ export function cachedProvider(id: ProviderId): ProviderStatus | undefined {
   return cache.get(id)
 }
 
+/** Lets the main process tell detection whether a key is stored, without providers.ts importing Electron. */
+let keyCheck: (id: ProviderId) => boolean = () => false
+export function setKeyCheck(fn: (id: ProviderId) => boolean): void {
+  keyCheck = fn
+}
+
+const HOSTED_IDS = new Set<ProviderId>(['nvidia', 'ollama'])
+
+async function cliVersion(path: string): Promise<string | null> {
+  try {
+    const l = await resolveLaunch(path)
+    const { stdout } = await run(l.file, [...l.prefix, '--version'], { timeout: 8000, shell: l.shell, windowsHide: true })
+    return /\d+\.\d+[\w.-]*/.exec(stdout)?.[0] ?? null
+  } catch {
+    return null
+  }
+}
+
 export async function detectProviders(): Promise<ProviderStatus[]> {
+  const ollamaUp = ollamaRunning()
+  const ollamaPath = which('ollama')
   const list = await Promise.all(
     PROVIDERS.map(async (p): Promise<ProviderStatus> => {
       const path = await which(p.command)
-      let version: string | null = null
-      if (path) {
-        try {
-          const l = await resolveLaunch(path)
-          const { stdout } = await run(l.file, [...l.prefix, '--version'], { timeout: 8000, shell: l.shell, windowsHide: true })
-          version = /\d+\.\d+[\w.-]*/.exec(stdout)?.[0] ?? null
-        } catch {
-          /* version is cosmetic */
-        }
-      }
-      return { ...p, installed: !!path, path, version, studioMcpOwn: ownStudioServers(p.id, null).length > 0 }
+      const hosted = HOSTED_IDS.has(p.id)
+      const base = { ...p, kind: hosted ? ('hosted' as const) : ('cli' as const), needsKey: p.id === 'nvidia', hasKey: p.id === 'nvidia' && keyCheck('nvidia') }
+      if (!hosted) return { ...base, installed: !!path, path, version: path ? await cliVersion(path) : null, studioMcpOwn: ownStudioServers(p.id, null).length > 0 }
+      // Hosted: OpenCode is the engine, plus the host itself must be usable.
+      const ready = !!path && (p.id === 'nvidia' ? base.hasKey : await ollamaUp)
+      const op = await ollamaPath
+      const version = p.id === 'ollama' && op ? await cliVersion(op) : null
+      return { ...base, installed: ready, path, version, studioMcpOwn: false }
     })
   )
   for (const p of list) cache.set(p.id, p)

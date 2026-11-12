@@ -4,6 +4,8 @@ import cursor from '@lobehub/icons-static-svg/icons/cursor.svg?raw'
 import gemini from '@lobehub/icons-static-svg/icons/gemini-color.svg?raw'
 import grok from '@lobehub/icons-static-svg/icons/grok.svg?raw'
 import muse from '@lobehub/icons-static-svg/icons/muse-color.svg?raw'
+import nvidia from '@lobehub/icons-static-svg/icons/nvidia-color.svg?raw'
+import ollama from '@lobehub/icons-static-svg/icons/ollama.svg?raw'
 import opencode from '@lobehub/icons-static-svg/icons/opencode.svg?raw'
 import pi from '@lobehub/icons-static-svg/icons/pi.svg?raw'
 import { siRobloxstudio } from 'simple-icons'
@@ -14,7 +16,7 @@ import { cn } from '../../lib/cn'
  * Real provider logos (bundled SVGs from @lobehub/icons-static-svg, MIT), shown only to
  * identify which agent is which. Monochrome marks inherit the text color.
  */
-const LOGOS: Record<string, string> = { claude, codex, cursor, gemini, grok, muse, opencode, pi }
+const LOGOS: Record<string, string> = { claude, codex, cursor, gemini, grok, muse, nvidia, ollama, opencode, pi }
 
 export function ProviderMark({ id, size = 22, dim = false }: { id: ProviderId | string; size?: number; dim?: boolean }): React.JSX.Element {
   const svg = LOGOS[id]

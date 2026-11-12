@@ -1,6 +1,6 @@
 // Types shared by main, preload and renderer.
 
-export type ProviderId = 'claude' | 'codex' | 'opencode' | 'gemini' | 'grok' | 'cursor' | 'muse' | 'pi'
+export type ProviderId = 'claude' | 'codex' | 'opencode' | 'gemini' | 'grok' | 'nvidia' | 'ollama' | 'cursor' | 'muse' | 'pi'
 
 export interface ProviderStatus {
   id: ProviderId
@@ -13,6 +13,11 @@ export interface ProviderStatus {
   studioMcp: boolean
   /** True when the CLI's own config already has a Roblox Studio MCP server. */
   studioMcpOwn: boolean
+  /** 'cli' runs its own agent; 'hosted' is a model host driven through OpenCode. */
+  kind: 'cli' | 'hosted'
+  /** Hosted providers that need a key Brickyard stores (NVIDIA). */
+  needsKey: boolean
+  hasKey: boolean
   installed: boolean
   path: string | null
   version: string | null
@@ -111,6 +116,8 @@ export interface Api {
   listProviders(): Promise<ProviderStatus[]>
   studioStatus(): Promise<StudioStatus>
   appInfo(): Promise<{ version: string; dataDir: string }>
+  setKey(name: 'nvidia', key: string | null): Promise<{ ok: boolean; message: string }>
+  testKey(name: 'nvidia', key: string): Promise<{ ok: boolean; message: string }>
   listModels(id: ProviderId, refresh?: boolean): Promise<ModelInfo[]>
   loadStore(): Promise<StoreData>
   saveStore(data: StoreData): Promise<void>

@@ -7,6 +7,7 @@ import { Dialog } from '../components/ui/Overlays'
 import { cn } from '../lib/cn'
 import { ACCENTS, SURFACES, useSettings, type Accent, type Surface, type TextSize } from '../lib/settings'
 import { useStore, type SettingsTab } from '../lib/store'
+import type { ProviderStatus } from '../../../shared/types'
 
 const TABS: { id: SettingsTab; name: string; icon: typeof Palette }[] = [
   { id: 'appearance', name: 'Appearance', icon: Palette },
@@ -149,40 +150,129 @@ function Appearance(): React.JSX.Element {
   )
 }
 
+function ProviderRow({ p }: { p: ProviderStatus }): React.JSX.Element {
+  const state = p.installed && p.supported ? 'Ready' : p.installed ? 'Detected' : p.kind === 'hosted' ? 'Set up' : 'Not installed'
+  const detail =
+    p.kind === 'hosted'
+      ? p.installed
+        ? p.id === 'ollama'
+          ? `Local server running${p.version ? ` · v${p.version}` : ''} · runs through OpenCode`
+          : 'Key saved · runs through OpenCode'
+        : p.authHint
+      : !p.installed
+        ? p.authHint
+        : p.supported
+          ? null
+          : 'Installed, but Brickyard has no chat adapter for it yet.'
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <ProviderMark id={p.id} size={28} dim={!p.installed} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className={cn('text-[13px] font-medium', !p.installed && 'text-fg2')}>{p.name}</span>
+          {p.version && p.kind === 'cli' && <span className="font-mono text-[11px] text-fg3">{p.version}</span>}
+        </div>
+        <div className="truncate text-xs text-fg3">{detail ?? <span className="font-mono text-[11px]">{p.path}</span>}</div>
+      </div>
+      <span className={cn('label shrink-0 rounded-full px-2 py-1 !tracking-[0.1em]', state === 'Ready' ? 'bg-ok/10 !text-ok' : state === 'Not installed' ? 'bg-white/[0.04]' : 'bg-ember/10 !text-ember-hi')}>
+        {state}
+      </span>
+    </div>
+  )
+}
+
+function NvidiaKey(): React.JSX.Element {
+  const p = useStore((s) => s.providers.find((x) => x.id === 'nvidia'))
+  const rescan = useStore((s) => s.rescan)
+  const [key, setKey] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<{ ok: boolean; message: string } | null>(null)
+  const save = async (value: string | null): Promise<void> => {
+    setBusy(true)
+    setNote(null)
+    const r = await window.api.setKey('nvidia', value)
+    setNote(r)
+    setBusy(false)
+    if (r.ok) {
+      setKey('')
+      void rescan()
+    }
+  }
+  return (
+    <div className="space-y-2 rounded-xl bg-black/30 p-3 ring-1 ring-line">
+      <div className="flex items-center gap-2.5">
+        <ProviderMark id="nvidia" size={22} />
+        <span className="text-[13px] font-medium">NVIDIA API key</span>
+        {p?.hasKey && <span className="label ml-auto rounded-full bg-ok/10 px-2 py-0.5 !text-ok">Saved</span>}
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (key.trim()) void save(key)
+        }}
+      >
+        <input
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={key}
+          onChange={(e) => setKey(e.target.value)}
+          placeholder={p?.hasKey ? 'Replace the saved key' : 'nvapi-…'}
+          aria-label="NVIDIA API key"
+          className="selectable h-8 min-w-0 flex-1 rounded-lg bg-black/40 px-2.5 font-mono text-xs outline-none ring-1 ring-line2 transition-shadow placeholder:text-fg3 focus:ring-ember/70"
+        />
+        <Button type="submit" size="sm" disabled={busy || !key.trim()}>
+          {busy ? 'Checking…' : 'Save'}
+        </Button>
+        {p?.hasKey && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => void save(null)}>
+            Remove
+          </Button>
+        )}
+      </form>
+      {note && <p className={cn('text-xs', note.ok ? 'text-ok' : 'text-bad')}>{note.message}</p>}
+      <p className="text-[11px] leading-snug text-fg3">
+        Get a free key at build.nvidia.com. Saving sends one tiny test request to NVIDIA, then the key is encrypted with Windows and never shown again. NVIDIA logs prompts sent to its free endpoints.
+      </p>
+    </div>
+  )
+}
+
 function Agents(): React.JSX.Element {
   const providers = useStore((s) => s.providers)
   const scanning = useStore((s) => s.scanning)
   const rescan = useStore((s) => s.rescan)
+  const clis = providers.filter((p) => p.kind === 'cli')
+  const hosts = providers.filter((p) => p.kind === 'hosted')
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       <div className="flex items-center justify-between gap-4">
-        <p className="text-xs leading-snug text-fg3">Brickyard runs the CLIs already installed and signed in on this PC. It never sees your keys.</p>
+        <p className="text-xs leading-snug text-fg3">Brickyard runs the agent CLIs already signed in on this PC, and drives model hosts through OpenCode.</p>
         <Button size="sm" onClick={() => void rescan()} disabled={scanning} className="shrink-0">
           <RefreshCw className={cn(scanning && 'animate-spin')} /> Rescan
         </Button>
       </div>
-      <div className="divide-y divide-line rounded-xl bg-black/30 ring-1 ring-line">
-        {providers.map((p) => {
-          const state = !p.installed ? 'Not installed' : p.supported ? 'Ready' : 'Detected'
-          return (
-            <div key={p.id} className="flex items-center gap-3 px-3 py-2.5">
-              <ProviderMark id={p.id} size={28} dim={!p.installed} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className={cn('text-[13px] font-medium', !p.installed && 'text-fg2')}>{p.name}</span>
-                  {p.version && <span className="font-mono text-[11px] text-fg3">{p.version}</span>}
-                </div>
-                <div className="truncate text-xs text-fg3">
-                  {!p.installed ? p.authHint : p.supported ? <span className="font-mono text-[11px]">{p.path}</span> : 'Installed, but Brickyard has no chat adapter for it yet.'}
-                </div>
-              </div>
-              <span className={cn('label shrink-0 rounded-full px-2 py-1 !tracking-[0.1em]', state === 'Ready' ? 'bg-ok/10 !text-ok' : state === 'Detected' ? 'bg-ember/10 !text-ember-hi' : 'bg-white/[0.04]')}>
-                {state}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+      <Section title="Agent CLIs">
+        <div className="divide-y divide-line rounded-xl bg-black/30 ring-1 ring-line">
+          {clis.map((p) => (
+            <ProviderRow key={p.id} p={p} />
+          ))}
+        </div>
+      </Section>
+      <Section title="Model hosts" hint="Use NVIDIA's API or models running on your own PC. OpenCode does the file editing, so it must be installed.">
+        <div className="space-y-2">
+          <div className="divide-y divide-line rounded-xl bg-black/30 ring-1 ring-line">
+            {hosts.map((p) => (
+              <ProviderRow key={p.id} p={p} />
+            ))}
+          </div>
+          <NvidiaKey />
+          <p className="px-1 text-[11px] leading-snug text-fg3">
+            Local Ollama models run on this PC, so speed depends on your hardware. Models tagged &ldquo;cloud&rdquo; in Ollama run on Ollama&rsquo;s servers instead.
+          </p>
+        </div>
+      </Section>
     </div>
   )
 }

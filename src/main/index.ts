@@ -5,7 +5,9 @@ import type { ProviderId, RunRequest, StoreData } from '../shared/types'
 import { cancelAll, cancelRun, runTurn } from './agents'
 import { gitChanges, gitDiff, listDir, readText } from './files'
 import { listModels } from './models'
-import { detectProviders, studioStatus } from './providers'
+import { checkNvidiaKey } from './hosted'
+import { setKey, hasKey } from './keys'
+import { detectProviders, setKeyCheck, studioStatus } from './providers'
 import { loadStore, saveStore } from './store'
 
 function createWindow(): void {
@@ -37,6 +39,10 @@ function createWindow(): void {
   else win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
+// Unpackaged runs (npm run dev, testing) get their own data folder, so they never touch
+// a real install's threads or keys and can run beside it. The lock below is per folder.
+if (!app.isPackaged) app.setPath('userData', app.getPath('userData') + '-dev')
+
 // One window owns the store file; a second launch just focuses the first.
 if (!app.requestSingleInstanceLock()) app.quit()
 app.on('second-instance', () => {
@@ -51,7 +57,23 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('dev.brickyard.app')
   app.on('browser-window-created', (_, w) => optimizer.watchWindowShortcuts(w))
 
+  setKeyCheck((id) => id === 'nvidia' && hasKey('nvidia'))
   ipcMain.handle('providers:list', () => detectProviders())
+  ipcMain.handle('keys:test', (_e, _name: 'nvidia', key: string) => checkNvidiaKey(String(key ?? '').trim()))
+  ipcMain.handle('keys:set', async (_e, name: 'nvidia', key: string | null) => {
+    try {
+      if (key) {
+        const check = await checkNvidiaKey(key.trim())
+        if (!check.ok) return check
+        setKey(name, key)
+        return check
+      }
+      setKey(name, null)
+      return { ok: true, message: 'Key removed.' }
+    } catch (e) {
+      return { ok: false, message: (e as Error).message }
+    }
+  })
   ipcMain.handle('studio:status', () => studioStatus())
   ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataDir: app.getPath('userData') }))
   ipcMain.handle('models:list', (_e, id: ProviderId, refresh?: boolean) => listModels(id, refresh))

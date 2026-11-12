@@ -5,6 +5,9 @@ import { join } from 'path'
 import { createInterface } from 'readline'
 import type { RunRequest } from '../shared/types'
 import { ADAPTERS, type Ctx, type Emit, type Json } from './adapters'
+import { isHosted, pickDefault } from './hosted'
+import { getKey } from './keys'
+import { listModels } from './models'
 import { cachedProvider, detectProviders, resolveLaunch } from './providers'
 
 /** Agents that can be handed Brickyard's MCP server per run, and so can call the others. */
@@ -17,10 +20,11 @@ function peerScript(): string {
 
 async function buildCtx(req: RunRequest): Promise<Ctx> {
   const dataDir = join(app.getPath('userData'), 'runs')
-  const ctx: Ctx = { dataDir }
+  const nvidia = req.providerId === 'nvidia' ? getKey('nvidia') : null
+  const ctx: Ctx = { dataDir, secrets: nvidia ? { nvidia } : undefined }
   if (!req.delegate || !CAN_LEAD.has(req.providerId)) return ctx
   const peers = (await detectProviders())
-    .filter((p) => p.installed && p.supported && p.path && p.id !== req.providerId)
+    .filter((p) => p.installed && p.supported && p.path && p.id !== req.providerId && !p.needsKey)
     .map((p) => ({ id: p.id, name: p.name, path: p.path }))
   if (!peers.length) return ctx
   mkdirSync(dataDir, { recursive: true })
@@ -69,7 +73,21 @@ export async function runTurn(req: RunRequest, emit: Emit): Promise<void> {
   const launch = await resolveLaunch(info.path)
   if (launch.shell) return fail(`Could not launch ${info.name} safely from ${info.path}.`)
 
-  const { args, stdin } = adapter.args(req, await buildCtx(req))
+  if (isHosted(req.providerId)) {
+    if (req.providerId === 'nvidia' && !getKey('nvidia')) return fail('Add your NVIDIA API key in Settings → Agents first.')
+    if (!req.model) {
+      const picked = pickDefault(req.providerId, await listModels(req.providerId))
+      if (!picked) return fail(`${info.name} has no models to run. ${req.providerId === 'ollama' ? 'Pull one with `ollama pull qwen2.5-coder`.' : ''}`)
+      req = { ...req, model: picked }
+    }
+  }
+  let built: { args: string[]; stdin?: string; env?: Record<string, string> }
+  try {
+    built = adapter.args(req, await buildCtx(req))
+  } catch (e) {
+    return fail((e as Error).message)
+  }
+  const { args, stdin } = built
   const cwd = req.cwd ?? app.getPath('home')
   if (!existsSync(cwd)) return fail(`The project folder no longer exists: ${cwd}`)
   let child: ChildProcess
@@ -77,7 +95,7 @@ export async function runTurn(req: RunRequest, emit: Emit): Promise<void> {
     child = spawn(launch.file, [...launch.prefix, ...args], {
       cwd,
       windowsHide: true,
-      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', MCP_TOOL_TIMEOUT: '900000' },
+      env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', MCP_TOOL_TIMEOUT: '900000', ...built.env },
       stdio: ['pipe', 'pipe', 'pipe']
     })
   } catch (e) {

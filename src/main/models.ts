@@ -4,6 +4,8 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { promisify } from 'util'
 import type { ModelInfo, ProviderId } from '../shared/types'
+import { nvidiaModels, ollamaModels } from './hosted'
+import { getKey } from './keys'
 import { cachedProvider, resolveLaunch } from './providers'
 
 const run = promisify(execFile)
@@ -26,6 +28,11 @@ async function cli(id: ProviderId, args: string[]): Promise<string> {
 }
 
 const LOADERS: Partial<Record<ProviderId, () => Promise<ModelInfo[]>>> = {
+  nvidia: async () => {
+    const key = getKey('nvidia')
+    return key ? nvidiaModels(key) : []
+  },
+  ollama: () => ollamaModels(),
   claude: async () => CLAUDE,
 
   // Codex caches the models this account may use; that is more accurate than any static list.
