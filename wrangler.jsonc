@@ -1,0 +1,11 @@
+{
+  // Brickyard website: a static site served by Cloudflare Workers.
+  // Deploy with:  npx wrangler deploy
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "brickyard",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site",
+    "not_found_handling": "404-page"
+  }
+}
