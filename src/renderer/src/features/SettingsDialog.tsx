@@ -294,6 +294,9 @@ function Behavior(): React.JSX.Element {
           <Toggle on={studioMcp} onChange={setStudioMcp} title="Attach Roblox Studio tools" hint="Gives the agent you are talking to the Studio MCP server. Agents it calls never get Studio access." />
         </div>
       </Section>
+      <Section title="Updates">
+        <Toggle on={s.updateCheck} onChange={(updateCheck) => s.set({ updateCheck })} title="Tell me about new versions" hint="Checks GitHub for a newer Brickyard release every few hours. Nothing is downloaded until you choose to." />
+      </Section>
       <Section title="Send message with">
         <Segmented
           label="Send key"
@@ -307,6 +310,33 @@ function Behavior(): React.JSX.Element {
         <p className="mt-2 text-xs text-fg3">{s.sendKey === 'enter' ? 'Shift + Enter adds a new line.' : 'Enter adds a new line.'}</p>
       </Section>
     </div>
+  )
+}
+
+function UpdateCheck(): React.JSX.Element {
+  const update = useStore((st) => st.update)
+  const check = useStore((st) => st.checkUpdate)
+  const [state, setState] = useState<{ busy: boolean; note: string | null }>({ busy: false, note: null })
+  const run = async (): Promise<void> => {
+    setState({ busy: true, note: null })
+    const r = await check()
+    setState({ busy: false, note: r.error ?? (r.update ? null : `You have the newest version (${r.current}).`) })
+  }
+  return (
+    <Section title="Updates">
+      <div className="flex items-center gap-3">
+        <Button size="sm" onClick={() => void run()} disabled={state.busy}>
+          <RefreshCw className={cn(state.busy && 'animate-spin')} /> Check for updates
+        </Button>
+        {update ? (
+          <button className="text-xs text-ember-hi underline underline-offset-2" onClick={() => void window.api.openRelease(update.url)}>
+            Version {update.version} is available
+          </button>
+        ) : (
+          state.note && <span className="text-xs text-fg3">{state.note}</span>
+        )}
+      </div>
+    </Section>
   )
 }
 
@@ -328,6 +358,7 @@ function About(): React.JSX.Element {
       <p className="text-[13px] leading-relaxed text-fg2">
         A free, open source control surface for building Roblox games with the AI agents you already use. This is a beta: expect rough edges, and keep your place backed up.
       </p>
+      <UpdateCheck />
       <Section title="Your data" hint="Threads and projects are stored only on this PC.">
         <div className="selectable rounded-xl bg-black/30 px-3 py-2.5 font-mono text-[11.5px] text-fg2 ring-1 ring-line">{info?.dataDir ?? '…'}</div>
       </Section>

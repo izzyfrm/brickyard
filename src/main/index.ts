@@ -6,6 +6,7 @@ import { cancelAll, cancelRun, runTurn } from './agents'
 import { gitChanges, gitDiff, listDir, readText } from './files'
 import { listModels } from './models'
 import { checkNvidiaKey } from './hosted'
+import { checkForUpdate, currentVersion, isReleaseUrl } from './updates'
 import { setKey, hasKey } from './keys'
 import { detectProviders, setKeyCheck, studioStatus } from './providers'
 import { loadStore, saveStore } from './store'
@@ -75,7 +76,11 @@ app.whenReady().then(() => {
     }
   })
   ipcMain.handle('studio:status', () => studioStatus())
-  ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataDir: app.getPath('userData') }))
+  ipcMain.handle('app:info', () => ({ version: currentVersion(), dataDir: app.getPath('userData') }))
+  ipcMain.handle('updates:check', () => checkForUpdate())
+  ipcMain.handle('updates:open', (_e, url: string) => {
+    if (typeof url === 'string' && isReleaseUrl(url)) void shell.openExternal(url)
+  })
   ipcMain.handle('models:list', (_e, id: ProviderId, refresh?: boolean) => listModels(id, refresh))
   ipcMain.handle('store:load', () => loadStore())
   ipcMain.handle('store:save', (_e, data: StoreData) => saveStore(data))

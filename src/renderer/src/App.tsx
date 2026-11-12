@@ -6,6 +6,7 @@ import { cn } from './lib/cn'
 import { useStore, type PanelTab } from './lib/store'
 import { Chat } from './features/Chat'
 import { SettingsDialog } from './features/SettingsDialog'
+import { UpdateToast } from './features/UpdateToast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { applySettings, useSettings } from './lib/settings'
 import { RightPanel } from './features/RightPanel'
@@ -109,6 +110,7 @@ export default function App(): React.JSX.Element {
         </div>
       </div>
       <SettingsDialog />
+      <UpdateToast />
     </div>
     </MotionConfig>
   )

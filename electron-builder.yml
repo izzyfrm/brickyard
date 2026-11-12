@@ -20,7 +20,8 @@ win:
   target:
     - nsis
 nsis:
-  artifactName: Brickyard-${version}-setup.${ext}
+  # A fixed name keeps https://github.com/izzyfrm/brickyard/releases/latest/download/Brickyard-Setup.exe stable.
+  artifactName: Brickyard-Setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

@@ -15,6 +15,8 @@ export interface Settings {
   /** Let the lead agent call the user's other agents. */
   delegate: boolean
   sendKey: SendKey
+  /** Show a notice when GitHub has a newer release. */
+  updateCheck: boolean
 }
 
 export const DEFAULTS: Settings = {
@@ -25,7 +27,8 @@ export const DEFAULTS: Settings = {
   glow: true,
   reduceMotion: false,
   delegate: true,
-  sendKey: 'enter'
+  sendKey: 'enter',
+  updateCheck: true
 }
 
 /** Each accent is a main hue and a lighter, warmer-or-cooler highlight hue. */

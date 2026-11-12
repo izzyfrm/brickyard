@@ -30,6 +30,13 @@ export interface ModelInfo {
   hint?: string
 }
 
+export interface UpdateInfo {
+  version: string
+  name: string
+  url: string
+  publishedAt: string
+}
+
 export interface StudioStatus {
   mcpInstalled: boolean
   mcpPath: string | null
@@ -116,6 +123,8 @@ export interface Api {
   listProviders(): Promise<ProviderStatus[]>
   studioStatus(): Promise<StudioStatus>
   appInfo(): Promise<{ version: string; dataDir: string }>
+  checkUpdate(): Promise<{ current: string; update: UpdateInfo | null; error?: string }>
+  openRelease(url: string): Promise<void>
   setKey(name: 'nvidia', key: string | null): Promise<{ ok: boolean; message: string }>
   testKey(name: 'nvidia', key: string): Promise<{ ok: boolean; message: string }>
   listModels(id: ProviderId, refresh?: boolean): Promise<ModelInfo[]>

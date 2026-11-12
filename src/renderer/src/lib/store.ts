@@ -9,7 +9,8 @@ import type {
   ProviderId,
   ProviderStatus,
   StudioStatus,
-  Thread
+  Thread,
+  UpdateInfo
 } from '../../../shared/types'
 
 export type PanelTab = 'files' | 'changes' | 'studio'
@@ -36,12 +37,16 @@ interface State {
   draft: Draft
   panel: PanelTab | null
   settingsOpen: boolean
+  update: UpdateInfo | null
+  dismissedUpdate: string | null
   settingsTab: SettingsTab
 
   init(): Promise<void>
   rescan(): Promise<void>
   setPanel(p: PanelTab | null): void
   openSettings(tab: SettingsTab | null): void
+  checkUpdate(): Promise<{ current: string; update: UpdateInfo | null; error?: string }>
+  dismissUpdate(version: string): void
   setStudioMcp(v: boolean): void
   openThread(id: string | null): void
   newThread(projectId?: string | null): void
@@ -131,6 +136,8 @@ export const useStore = create<State>((set, get) => ({
   draft: loadDraft(),
   panel: null,
   settingsOpen: false,
+  update: null,
+  dismissedUpdate: localStorage.getItem('brickyard.dismissedUpdate'),
   settingsTab: 'appearance',
 
   async init() {
@@ -142,6 +149,12 @@ export const useStore = create<State>((set, get) => ({
     set({ projects: data.projects, threads: data.threads, studio, ready: true })
     void get().rescan()
     setInterval(() => void window.api.studioStatus().then((s) => set({ studio: s })), 5000)
+    // Check shortly after launch, then every six hours. GitHub allows 60 unauthenticated calls an hour.
+    const auto = (): void => {
+      if (useSettings.getState().updateCheck) void get().checkUpdate()
+    }
+    setTimeout(auto, 4000)
+    setInterval(auto, 6 * 60 * 60 * 1000)
   },
 
   async rescan() {
@@ -158,6 +171,15 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setPanel: (panel) => set({ panel }),
+  async checkUpdate() {
+    const r = await window.api.checkUpdate()
+    if (!r.error) set({ update: r.update })
+    return r
+  },
+  dismissUpdate(version) {
+    localStorage.setItem('brickyard.dismissedUpdate', version)
+    set({ dismissedUpdate: version })
+  },
   openSettings: (tab) => set(tab ? { settingsOpen: true, settingsTab: tab } : { settingsOpen: false }),
   setStudioMcp: (v) => {
     localStorage.setItem('brickyard.studioMcp', v ? '1' : '0')

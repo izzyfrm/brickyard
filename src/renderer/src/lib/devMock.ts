@@ -58,6 +58,8 @@ export function installDevMock(): void {
     },
     setKey: async (_n, key) => (key ? { ok: true, message: 'Key works. 61 chat models available.' } : { ok: true, message: 'Key removed.' }),
     testKey: async () => ({ ok: true, message: 'Key works. 61 chat models available.' }),
+    checkUpdate: async () => ({ current: '0.1.0-beta.2', update: { version: '0.1.0-beta.3', name: 'Brickyard 0.1.0 beta 3', url: 'https://github.com/izzyfrm/brickyard/releases/tag/v0.1.0-beta.3', publishedAt: new Date().toISOString() } }),
+    openRelease: async () => {},
     appInfo: async () => ({ version: '0.1.0-beta.1', dataDir: 'C:/Users/dev/AppData/Roaming/brickyard' }),
     loadStore: async () => JSON.parse(localStorage.getItem('mock.store') ?? '{"projects":[],"threads":[]}') as StoreData,
     saveStore: async (d) => localStorage.setItem('mock.store', JSON.stringify(d)),
